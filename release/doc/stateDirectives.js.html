@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: stateDirectives.js</title>
+    
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+    
+    <h1 class="page-title">Source: stateDirectives.js</h1>
+    
+    
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source"><code>function parseStateRef(ref) {
+  var parsed = ref.replace(/\n/g, " ").match(/^([^(]+?)\s*(\((.*)\))?$/);
+  if (!parsed || parsed.length !== 4) throw new Error("Invalid state ref '" + ref + "'");
+  return { state: parsed[1], paramExpr: parsed[3] || null };
+}
+
+function stateContext(el) {
+  var stateData = el.parent().inheritedData('$uiView');
+
+  if (stateData && stateData.state && stateData.state.name) {
+    return stateData.state;
+  }
+}
+
+/**
+ * @ngdoc directive
+ * @name ui.router.state.directive:ui-sref
+ *
+ * @requires ui.router.state.$state
+ * @requires $timeout
+ *
+ * @restrict A
+ *
+ * @description
+ * A directive that binds a link (`&lt;a>` tag) to a state. If the state has an associated 
+ * URL, the directive will automatically generate & update the `href` attribute via 
+ * the {@link ui.router.state.$state#methods_href $state.href()} method. Clicking 
+ * the link will trigger a state transition with optional parameters. 
+ *
+ * Also middle-clicking, right-clicking, and ctrl-clicking on the link will be 
+ * handled natively by the browser.
+ *
+ * You can also use relative state paths within ui-sref, just like the relative 
+ * paths passed to `$state.go()`. You just need to be aware that the path is relative
+ * to the state that the link lives in, in other words the state that loaded the 
+ * template containing the link.
+ *
+ * @example
+ * &lt;pre>
+ * &lt;a ui-sref="home">Home&lt;/a> | &lt;a ui-sref="about">About&lt;/a>
+ *
+ * &lt;ul>
+ *   &lt;li ng-repeat="contact in contacts">
+ *     &lt;a ui-sref="contacts.detail({ id: contact.id })">{{ contact.name }}&lt;/a>
+ *   &lt;/li>
+ * &lt;/ul>
+ * &lt;/pre>
+ *
+ * @param {string} ui-sref 'stateName' can be any valid absolute or relative state
+ */
+$StateRefDirective.$inject = ['$state', '$timeout'];
+function $StateRefDirective($state, $timeout) {
+  return {
+    restrict: 'A',
+    require: '?^uiSrefActive',
+    link: function(scope, element, attrs, uiSrefActive) {
+      var ref = parseStateRef(attrs.uiSref);
+      var params = null, url = null, base = stateContext(element) || $state.$current;
+      var isForm = element[0].nodeName === "FORM";
+      var attr = isForm ? "action" : "href", nav = true;
+
+      var update = function(newVal) {
+        if (newVal) params = newVal;
+        if (!nav) return;
+
+        var newHref = $state.href(ref.state, params, { relative: base });
+
+        if (!newHref) {
+          nav = false;
+          return false;
+        }
+        element[0][attr] = newHref;
+        if (uiSrefActive) {
+          uiSrefActive.$$setStateInfo(ref.state, params);
+        }
+      };
+
+      if (ref.paramExpr) {
+        scope.$watch(ref.paramExpr, function(newVal, oldVal) {
+          if (newVal !== params) update(newVal);
+        }, true);
+        params = scope.$eval(ref.paramExpr);
+      }
+      update();
+
+      if (isForm) return;
+
+      element.bind("click", function(e) {
+        var button = e.which || e.button;
+        if ((button === 0 || button == 1) && !e.ctrlKey && !e.metaKey && !e.shiftKey && !element.attr('target')) {
+          // HACK: This is to allow ng-clicks to be processed before the transition is initiated:
+          $timeout(function() {
+            scope.$apply(function() {
+              $state.go(ref.state, params, { relative: base });
+            });
+          });
+          e.preventDefault();
+        }
+      });
+    }
+  };
+}
+
+/**
+ * @ngdoc directive
+ * @name ui.router.state.directive:ui-sref-active
+ *
+ * @requires ui.router.state.$state
+ * @requires ui.router.state.$stateParams
+ * @requires $interpolate
+ *
+ * @restrict A
+ *
+ * @description
+ * A directive working alongside ui-sref to add classes to an element when the 
+ * related ui-sref directive's state is active, and removing them when it is inactive.
+ * The primary use-case is to simplify the special appearance of navigation menus 
+ * relying on `ui-sref`, by having the "active" state's menu button appear different,
+ * distinguishing it from the inactive menu items.
+ *
+ * @example
+ * &lt;pre>
+ * &lt;ul>
+ *   &lt;li ui-sref-active="active" class="item active">
+ *     &lt;a ui-sref="app.user({user: 'bilbobaggins'})" href="/users/bilbobaggins">@bilbobaggins&lt;/a>
+ *   &lt;/li>
+ *   &lt;!-- ... -->
+ * &lt;/ul>
+ * &lt;/pre>
+ */
+$StateActiveDirective.$inject = ['$state', '$stateParams', '$interpolate'];
+function $StateActiveDirective($state, $stateParams, $interpolate) {
+  return {
+    restrict: "A",
+    controller: ['$scope', '$element', '$attrs', function($scope, $element, $attrs) {
+      var state, params, activeClass;
+
+      // There probably isn't much point in $observing this
+      activeClass = $interpolate($attrs.uiSrefActive || '', false)($scope);
+
+      // Allow uiSref to communicate with uiSrefActive
+      this.$$setStateInfo = function(newState, newParams) {
+        state = $state.get(newState, stateContext($element));
+        params = newParams;
+        update();
+      };
+
+      $scope.$on('$stateChangeSuccess', update);
+
+      // Update route state
+      function update() {
+        if ($state.$current.self === state && matchesParams()) {
+          $element.addClass(activeClass);
+        } else {
+          $element.removeClass(activeClass);
+        }
+      }
+
+      function matchesParams() {
+        return !params || equalForKeys(params, $stateParams);
+      }
+    }]
+  };
+}
+
+angular.module('ui.router.state')
+  .directive('uiSref', $StateRefDirective)
+  .directive('uiSrefActive', $StateActiveDirective);
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Index</a></h2><h3>Classes</h3><ul><li><a href="$urlMatcherFactory.html">$urlMatcherFactory</a></li><li><a href="UrlMatcher.html">UrlMatcher</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ancestors">ancestors</a></li><li><a href="global.html#arraySearch">arraySearch</a></li><li><a href="global.html#equalForKeys">equalForKeys</a></li><li><a href="global.html#filterByKeys">filterByKeys</a></li><li><a href="global.html#inheritParams">inheritParams</a></li><li><a href="global.html#keys">keys</a></li><li><a href="global.html#normalize">normalize</a></li></ul>
+</nav>
+
+<br clear="both">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.2</a> on Thu Dec 19 2013 12:26:06 GMT-0700 (MST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

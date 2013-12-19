@@ -168,8 +168,6 @@ function filterByKeys(keys, values) {
  * @ngdoc overview
  * @name ui.router.util
  *
- * @description
- *
  */
 angular.module('ui.router.util', ['ng']);
 
@@ -178,8 +176,6 @@ angular.module('ui.router.util', ['ng']);
  * @name ui.router.router
  * 
  * @requires ui.router.util
- *
- * @description
  *
  */
 angular.module('ui.router.router', ['ui.router.util']);
@@ -191,8 +187,6 @@ angular.module('ui.router.router', ['ui.router.util']);
  * @requires ui.router.router
  * @requires ui.router.util
  *
- * @description
- *
  */
 angular.module('ui.router.state', ['ui.router.router', 'ui.router.util']);
 
@@ -202,8 +196,6 @@ angular.module('ui.router.state', ['ui.router.router', 'ui.router.util']);
  *
  * @requires ui.router.state
  *
- * @description
- *
  */
 angular.module('ui.router', ['ui.router.state']);
 /**
@@ -211,8 +203,6 @@ angular.module('ui.router', ['ui.router.state']);
  * @name ui.router.compat
  *
  * @requires ui.router
- *
- * @description
  *
  */
 angular.module('ui.router.compat', ['ui.router']);

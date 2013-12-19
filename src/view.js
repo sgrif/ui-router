@@ -10,8 +10,6 @@ function $ViewProvider() {
    * @requires ui.router.util.$templateFactory
    * @requires $rootScope
    *
-   * @description
-   *
    */
   $get.$inject = ['$rootScope', '$templateFactory'];
   function $get(   $rootScope,   $templateFactory) {
@@ -21,8 +19,6 @@ function $ViewProvider() {
        * @ngdoc function
        * @name ui.router.state.$view#load
        * @methodOf ui.router.state.$view
-       *
-       * @description
        *
        * @param {string} name name
        * @param {object} options option object.
